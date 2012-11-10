@@ -1,13 +1,13 @@
 \documentclass[]{article}
 \renewcommand{\rmdefault}{ptm}
-\usepackage[hmargin=30mm]{geometry}
+%\usepackage[hmargin=30mm]{geometry}
 \usepackage{tabularx}
 
 \begin{document}
 
 \begin{table}[here]
 \centering
-\begin{tabularx}{0.7\textwidth}{| X | X | }
+\begin{tabularx}{\textwidth}{| X | X | }
 \hline
 Topic of Survey						& 	Cloud Computing\\
 \hline
@@ -32,14 +32,25 @@ Sections done by second member			& 	\\
 
 \pagebreak
 
-\section{Introduction}
-
-
 %9 pages
 \section{Introduction to the various methods}
 %fill in the method names as the subsection header
 \subsection{MapReduce: Simplified Data Processing on Large Clusters}
+\subsubsection{Introduction}
+MapReduce, made popular by Google, is a programming model that is generally used to process and generate huge sets of data using distributed computing. It is based on 2 core functions of functional languages, \emph{map} and \emph{reduce}. Users of this model will first write a function that \emph{maps} a key-value pair to an intermediate key-value pair, and run this function on all the key-value pairs in the dataset. They will then write another function that aggregates all the values with the same key, and use it to \emph{reduce} the data to the output that is intended. \\
 
+The code that runs the processing on large datasets using this programming model is generally \emph{embarrassingly parallel}\footnotemark\footnotetext{Embarassingly parallel programs are programs that have an almost perfect speed up because each component can be done individually.}, and hence, this programming model is often utilised to process large data sets on multiple computers and sometimes even multiple datacenters. \\
+
+\subsubsection{How it works}
+The \emph{map} function, which is written by the user, takes in a set of key-value pair, processes it, and returns a set of intermediate key-value pairs. After the final set of intermediate key-value pair has been generated, the intermediate data set is then passed to the \emph{reduce} function. The \emph{reduce} function will then process all the values with the same key, generating a final result for that key that takes into account all the values that key has.
+
+The \emph{map} and \emph{reduce} functions are generally put into a larger MapReduce system that handles more of the backend processing, including allocating the tasks to the machine, and aggregating all the results to return after \emph{reduce} has completed the post processing.
+
+
+\subsubsection{Implementation}
+There are various ways to implement \emph{MapReduce}, and it generally depends on the hardware available, and the following describes the implementation that is done at Google.
+
+The data is first split into chunks of 16MB to 64MB, dependent on user input, and the program is started up multiple times on the cluster that is assigned for that task. Of all the copies of the program that is started up, one of it would be assigned the master role, and has the job of assigning idle workers to a task. When an idle worker is assigned a \emph{map} task, it will then process the corresponding chunk of data, and pass each key-value pair to the \emph{map} function. The resultant key-value pairs produced by the \emph{map} function is then temporarily stored in memory. The key-value pairs stored in memory are then regularly pushed onto local storage, and their stored locations are then passed to the master program to keep track of.
 
 \subsection{Camdoop}
 %Preprocessing instead of post processing
