@@ -57,7 +57,7 @@ As the master program is central to a MapReduce operation succeeding, it will ha
 \subsubsection{Fault tolerance}
 The MapReduce library is intended to process a massive amount of data using massive computational resources. Hence, there is a requirement to make this system able to recover from faults too. \\
 
-First, the master program will have to ensure that the worker programs are working. If any of the worker programs fail, the master program will have to assign another worker program to handle the task that has failed, regardless of whether it is the \emph{map} or \emph{reduce} functions. The master does this by pinging the worker programs at regular intervals. If the worker program does not respond, the master program then takes it that the worker program has failed, and then marks all \emph{map} tasks that have been processed or being processed by that worker program as unprocessed, and will then assign other worker programs to handle those tasks. This is as the processed data is stored on local storage, and not in global storage, the rest of the system will not be able to access the data in the failed machine. The workers handling the reduce tasks will also be informed of the reexecution of the \emph{map} task, so that the tasks that have yet to get the data from the now failed system can get it from the new system in charge of that \emph{map} task. However, \emph{reduce} tasks do not need to be redone on failure as the results from the \emph{reduce} tasks are store in global storage.\\
+First, the master program will have to ensure that  the worker programs are working. If any of the worker programs fail, the master program will have to assign another worker program to handle the task that has failed, regardless of whether it is the \emph{map} or \emph{reduce} functions. The master does this by pinging the worker programs at regular intervals. If the worker program does not respond, the master program then takes it that the worker program has failed, and then marks all \emph{map} tasks that have been processed or being processed by that worker program as unprocessed, and will then assign other worker programs to handle those tasks. This is as the processed data is stored on local storage, and not in global storage, the rest of the system will not be able to access the data in the failed machine. The workers handling the reduce tasks will also be informed of the reexecution of the \emph{map} task, so that the tasks that have yet to get the data from the now failed system can get it from the new system in charge of that \emph{map} task. However, \emph{reduce} tasks do not need to be redone on failure as the results from the \emph{reduce} tasks are store in global storage.\\
 
 In the event of the failure of the master program, things are done differently. Google will abort the computation when the master program has failed, and letting the clients do the checks and deciding if they should retry, simply because this happens very rarely (only 1 program out of the possible thousands is the master). However, if someone wants to make it failsafe, one can simply make the master commit the state to the global storage (which is redundant and failsafe), and then spin up another master program when it goes down and start again from the state stored in the global storage.\\
 
@@ -79,17 +79,25 @@ In addition to most of the methods listed above, there are times when certain ta
 A general method used by MapReduce to counter this kind of issues is to run redundant tasks when a large number of it's worker machines are idle and not processing anything related to the MapReduce operation. When the MapReduce operation is almost completed and there are a few straggler tasks that are running, the master program will allocate identical tasks to a other machines as well, and the task is considered completed when any one of the machines has completed the task. \\
 
 \subsubsection{Addons to the MapReduce library}
+There has been some additions made to the MapReduce library on top of the basics as detailed above.\\
 
+Firstly, the users of the library can not only define the number of \emph{map} and \emph{reduce} tasks, but also the way the output data is partitioned. This is especially useful in cases where the hierarchical string, and only a certain part of the string should be taken as the identifier when partitioning.\\
 
-\subsection{Camdoop}
+Another addon which may come in useful to most users is that the partition files are sorted in ascending order. This would allow future users of the file to easily look for the data they require within the file.
+
+A useful addon to reduce network I/O would be the combiner. In essence the combiner just runs the \emph{reduce} function right after \emph{map}, and write it to the intermediate output file. For example, in a program that counts the total number of words there are might have plenty of duplicate words due to the map function. What the combiner  would do is to merge this data together first so that instead of sending thousands of records over, it can be sent as a few records.
+
+\subsection{Addition enhancement to MapReduce}
+%each of these sections should take around 1.5 to 2 pages.
+\subsubsection{Camdoop}
 %Preprocessing instead of post processing
 
-\subsection{Mantri}
+\subsubsection{Mantri}
 % Load balancing tasks and reduce the effects caused by outliers
 
-\subsection{Nectar}
+\subsubsection{Nectar}
 
-\subsection{Optimising data shuffling in Data Parallel Computation}
+\subsubsection{Optimising data shuffling in Data Parallel Computation}
 
 %3 pages
 \section{Advantages and Disadvantages of each method}
