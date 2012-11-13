@@ -124,7 +124,7 @@ The tasks will also estimate the time remaining via the following equation.
 
 $time_{remaining} = time_{elapsed} * \frac{data}{data_{read}} + time_{wrapup}$
 
-Mantri uses a moving average, and in order to handle lost reports, if a task has not reported for some time, $time_{remaining}$ is automatically increased, with the assumption that no progress has been made.
+Mantri uses a moving average, and in order to handle lost reports, if a task has not reported for some time, $time_{remaining}$ is automatically increased, with the assumption that no progress has been made.\\
 
 \subsubsection{Nectar}
 
@@ -133,18 +133,23 @@ Mantri uses a moving average, and in order to handle lost reports, if a task has
 %3 pages
 \section{Advantages and Disadvantages of each method}
 %fill in the method names as the subsection header
-\subsection{}
+\subsection{MapReduce}
+One of the biggest advantages of MapReduce is that it has made parallel computing and distributed computing easily implementable, in a way that most programmers are able to utilise it without having extensive knowledge of distributed computing. It allows most people to easily write their own \emph{map} and \emph{reduce} functions to crunch large amounts of data and use the computational resources available to them easily. \\
 
-\subsection{}
+While MapReduce has made distributed computing widely available, especially through open source libraries such as Hadoop, MapReduce by itself is still not very robust, and the other addons as described below would help to make MapReduce alot more robust as a library/programming model.
 
-\subsection{}
+\subsection{Camdoop}
 
-\subsection{}
+\subsection{Mantri}
 
-\subsection{}
+The main advantage of Mantri is that it on the whole serves to speed up the MapReduce operation. By having targeted solutions to the various problems that may slow down the individual tasks, Mantri does make MapReduce alot more robust than it already is. Mantri tries to prevent outliers by ensuring that network I/O is not congested, and restarting jobs if they are slower than expected, and making data redundant if the costs of recomputing them is too high.
 
-%1 page
-\section{Creating a more robust combination}
+However Mantri does have one flaw which it tries to avoid by running the longer tasks first, which is the issue of extra large tasks as a result of the partitioning which is done over a series of keys that is not really random, but may result in large data points being regarded as in the same dataset.
+
+
+\subsection{Nectar}
+
+\subsection{Optimising data shuffling in Data Parallel Computation}
 
 %1 page
 \section{State of Research}
