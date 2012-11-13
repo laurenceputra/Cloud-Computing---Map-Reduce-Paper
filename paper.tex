@@ -19,13 +19,13 @@ First team member's matriculation number	&	U096833E\\
 \hline
 First team member's name					&	LAURENCE PUTRA FRANSLAY\\
 \hline
-Sections done by first member				& 	1.1.x, 1.2.2\\
+Sections done by first member				& 	1.1.x, 1.3, 2.x\\
 \hline
 Second team member's matriculation number	&	\\
 \hline
 Second team member's name					&	\\
 \hline
-Sections done by second member				& 	\\
+Sections done by second member				& 	1.2.x, 1.4.x, 1.5.x, 3\\
 \hline
 
 \hline
@@ -89,16 +89,40 @@ Another addon which may come in useful to most users is that the partition files
 
 A useful addon to reduce network I/O would be the combiner. In essence the combiner just runs the \emph{reduce} function right after \emph{map}, and write it to the intermediate output file. For example, in a program that counts the total number of words there are might have plenty of duplicate words due to the map function. What the combiner  would do is to merge this data together first so that instead of sending thousands of records over, it can be sent as a few records.\\
 
-\subsection{Additional enhancement to MapReduce}
 %each of these sections should take around 1.5 to 2 pages.
-\subsubsection{Camdoop}
+\subsection{Camdoop}
 %Preprocessing instead of post processing
 
+Map-Reduce and similar “partition/aggregation” algorithms that performs computation on distributed system may suffer from a high network traffic load during the shuffle phase because a typical Map-Reduce processing algorithm will causes a all-to-all server exchange of data, as intermediate keys-values pairs are aggregated and ordered in different servers. This will result in a total exchange of $O(N^2)$ of the amount of data where N is the number of servers.\\
+
+Camdoop’s solution to this problem is to exploit the direct connection of servers, exploiting the 3D-torus network topology Camcube (Figure \ref{fig:camdoop11}) (elaborated below), to perform network aggregation of data, that is to aggregate data in the shuffle phase as it is passed on to each hop of the network in order to emit a lesser amount of data to the next hop.\\
+
+\begin{figure}[here]
+	\begin{center}
+		\includegraphics{camdoop11.png}
+		\caption{Camcube/Camdoop’s 3D torus architecture where each node represents a server and each edge is a direct Ethernet cable link. }
+		\label{fig:camdoop11}
+	\end{center}
+\end{figure}
+
+Specifically, the entire Camdoop network architecture contains a total of 6 disjoint trees. data would originate from the edges of the tree and be moved to its parent where intermediate values of the same key could be ran through a reduce function once, before the resulting reduced data is passed to another ancestor node, which once again performs reduce on it. Hence, the benefits of Camdoop’s network aggregation are gained when the reduce functions are commutative (it does not matter which reduce function runs first) and associative (it does not matter which piece of data is reduced first), and that common intermediate keys are shared (which allows data to be reduced), which is the usual case for Map-Reduce functions.\\
+
+From this architecture, the authors build a 27-servers Camdoop instance and ran typical Map-Reduce functions: Sort and Word Count, and from their test they have conclude that the Camdoop’s approach produces a 2 order reduction in magnitude in processing time.\\
+
+However, if the above-mentioned conditions are not met, other side benefits of Camdoop includes its ability to spread the sort load to be spread across servers and it can also use its application knowledge to schedule the transport of data over the network based on priority to processing is not held up by heavy network traffic. \\
+
+
+
+\subsubsection{Camcube}
+Camcube is a network architecture that uses a direct-connect topology to connect all its participating commodity servers in 3D torus layout - a typical network architecture used in high performance computing to increase the bisection bandwidth of the compute cluster. Each piece of data in the cluster is addressed and identified by a 160-bit key, where the the most significant bits of the are x-y-z coordinate of the servers. It represents both the physical and logical address of the server. During the transportation of data, it is either passed to the destination server if directly connected, else it would be passed to the neighbour that is closest to the destination server by shifting the most appropriate bit.\\
+
+\subsubsection{Fault Tolerance of Camdoop}
+There are several kinds of failures that might happen. In the case of link failures, since a server is connected to many direct neighbour, the data is simply rerouted to the destination server. In the case of server failures, its responsibilities (a server is concurrently a node in 6 different trees) are mapped to its closest neighbours and all servers will be informed of this mapping. The parent of the failed server will then send a control packet to request all the child of the failed server to send their intermediate key, value pair to it so processing could continue.\\
 
 
 
 
-\subsubsection{Mantri}
+\subsection{Mantri}
 % Load balancing tasks and reduce the effects caused by outliers
 Mantri is a method that use used to reduce the impact that outliers have on the entire MapReduce operation. As detailed earlier, MapReduce internally handles outliers by assigning an identical task to another worker machine, in the hopes that it can complete the task earlier. These outliers may happen due to many reasons, including but not limited to heavy workload for that machine, or large quantities of hard disk I/O during that period of time. \\
 
@@ -109,6 +133,7 @@ Mantri basically identifies certain checkpoints that the tasks are not able to p
 	\begin{center}
 		\includegraphics[width=0.9\textwidth]{mantri11.png}
 		\caption{Actions taken by Mantri}
+		\label{fig:mantri11}
 	\end{center}
 \end{figure}
 
@@ -126,9 +151,52 @@ $time_{remaining} = time_{elapsed} * \frac{data}{data_{read}} + time_{wrapup}$
 
 Mantri uses a moving average, and in order to handle lost reports, if a task has not reported for some time, $time_{remaining}$ is automatically increased, with the assumption that no progress has been made.\\
 
-\subsubsection{Nectar}
+\subsection{Nectar}
+Nectar is a data and computational management system designed to effectively utilize storage space and computational processes in data center. It improves the efficiency of data of processing by caching both the results of the computation and sometimes the intermediate values of the derived data if it meets a certain storage criteria (discussed below), hence eliminating the need to perform the same exact computation over again on the same data sets by different program for results that are cached.\\
 
-\subsubsection{Optimising data shuffling in Data Parallel Computation}
+Nectar approach is to store, some intermediate data, a unique Rabin hash of the data set crossed with the compute steps necessary to derived the data, a cache of all the programmatic steps that already taken place, and usage statistics of the compute steps. It takes in a Dyrad/LINQ program and then uses a static program analyzer to parse a user defined program to rewrite it in its semantically equivalent form based on the compute steps that are already stored in its program cache. This technique is conceptually equivalent to memoization used to store results of previous invocation of functional programs to reduce re-computation costs.\\
+
+As the program could be written in various semantically equivalent forms and that some intermediate data might not be available, Nectar will determine the best processing path using data processing costs estimates heuristically from the resulting acyclic directed graph, and then commence computation. Again, if any parts of the intermediate program allows a reuse of previous computation, it is immediate redirected by the Rabin hash to the stored result hence saving on the computation steps. The architecture and data flow of Nectar is shown below and it is designed to be transparent to the programmer. \\
+
+\begin{figure}[here]
+	\begin{center}
+		\includegraphics[width=0.7\textwidth]{nectar11.png}
+		\caption{Nectar’s architecture}
+		\label{fig:nectar11}
+	\end{center}
+\end{figure}
+
+Testing Nectar on a deployment cluster of 240 nodes, and and analyzing the usage patterns from 25 large production clusters. The author concludes that on average clusters could save a minimum of 20-40\% of the compute time deployed Nectar. Furthermore, positive also received positive feed backs from the developers.\\
+
+\subsubsection{Caching Policy}
+A data caching policy is implemented by Nectar to determined which intermediate derived datasets are kept and which are discarded to reduce the storage burden of having too many unused intermediate data set. For each derived dataset, its garbage collection potential is determined both by its usage statistics and is encapsulated with the heuristic below:
+
+Garbage Collection Potential = Size of Dataset * Time Since last use / (Number of times used X cumulative machine time needed to produce the data)\\
+
+The higher the potential the more likely a dataset will be garbage collected. New derived datasets are given a lease so it will be able to proof its usefulness over the lease’s lifetime.\\
+
+\subsection{Optimizing Data Shuffling in Data-Parallel Computation by Understanding User-Defined Functions}
+
+One typical overhead and bottle neck of distributed Map-Reduce computation is the shuffle phase where intermediate key-values are shuffled between different servers after the combine phase to aggregate all the values with the same keys in the same server (or subset of server if the data volume is large). However, a complete shuffle step involves “local sort step that sorts records in a partition with respect to a key, a re-partition step that redistributes records to partitions via hash or range partitioning, and a multi-way merge step that clusters re-distributed records based on the key” which is very expensive in terms of network bandwidth because its a all-to-all server transmission of data and is also very expensive in terms of disk I/O because the combined data has to read and output, while the incoming data has to be written to disk. This naive complete shuffle step reduces Map-Reduce’s performance.  \\
+
+\begin{figure}[here]
+	\begin{center}
+		\includegraphics[width=0.6\textwidth]{parallel11.png}
+		\caption{Directed Acyclic Graph of how each sorted state can be obtained from another looser state. }
+		\label{fig:parallel11}
+	\end{center}
+\end{figure}
+
+With that in mind, the authors of this paper propose to analyze the user defined functions to understand the semantic implications of these function during the shuffle phase in order to reduce the need for executing all the three steps mentioned above, because for some programs a looser sort computation is sufficient in itself to generate the desired computation result. Hence, the authors has identified possible types of shuffle, starting from the least stringent AdHoc to the most stringent GSorted. The relationship between the types of shuffle and how they can be possibly obtained from the less stringent one is shown as an directed acyclic graph below (Figure \ref{fig:parallel11}) with arrow representing data transforming operations and nodes presenting the different sort data. Naturally, the least stringent sorted state will require lesser computation, and the author hope to identify which kind of sort is required by the Map-Reduce program in order to apply the minimum sorted stage at the shuffle phase. \\
+
+The authors then wrote a custom logical inference program called SUDO, which will be used to analyze user-defined map-reduce programs to identity which types of functions from the following set are used in the program and it which order are they set-up. This would directly allow SUDO to calculate which shuffle steps could be reduced to a less expensive one or be avoided altogether. Fig. 4 shows how different types of function mutate the the state of sorted-ness and partition over the data. Hence, for eg. if Map-Reduce program has two of one-to-one step succeeding each other, then there is no need for shuffle to take place between them because one-to-one maintains the “clustered” state. 
+\begin{figure}[here]
+	\begin{center}
+		\includegraphics[width=0.6\textwidth]{parallel12.png}
+		\label{fig:parallel12}
+	\end{center}
+\end{figure}
+
 
 %3 pages
 \section{Advantages and Disadvantages of each method}
@@ -136,22 +204,75 @@ Mantri uses a moving average, and in order to handle lost reports, if a task has
 \subsection{MapReduce}
 One of the biggest advantages of MapReduce is that it has made parallel computing and distributed computing easily implementable, in a way that most programmers are able to utilise it without having extensive knowledge of distributed computing. It allows most people to easily write their own \emph{map} and \emph{reduce} functions to crunch large amounts of data and use the computational resources available to them easily. \\
 
-While MapReduce has made distributed computing widely available, especially through open source libraries such as Hadoop, MapReduce by itself is still not very robust, and the other addons as described below would help to make MapReduce alot more robust as a library/programming model.
+While MapReduce has made distributed computing widely available, especially through open source libraries such as Hadoop, MapReduce by itself is still not very robust, and the other addons as described below could help to make MapReduce alot more robust as a library/programming model.\\
 
 \subsection{Camdoop}
+While Camdoop may seem to be able to reduce network traffice by a decent amount, through reading the paper we have found problems with their argument.\\
+
+For example, if the tree has a huge depth (>3) and that the keys are sparse, then the same data might be passed many times along the tree before it is reduced together by other intermediate values with the same key which might reduce Camdoop’s performance.\\
+
+Secondly, Camdoop also implicitly requires mappers and child reducers return approximately the same time, else, the parent will either have to hold the reduce values (increasing the total processing time) or will not be able to adequately ``combine'' values (hence not having any of the stated reduction in network traffic)\\
 
 \subsection{Mantri}
 
-The main advantage of Mantri is that it on the whole serves to speed up the MapReduce operation. By having targeted solutions to the various problems that may slow down the individual tasks, Mantri does make MapReduce alot more robust than it already is. Mantri tries to prevent outliers by ensuring that network I/O is not congested, and restarting jobs if they are slower than expected, and making data redundant if the costs of recomputing them is too high.
+The main advantage of Mantri is that it on the whole serves to speed up the MapReduce operation. By having targeted solutions to the various problems that may slow down the individual tasks, Mantri does make MapReduce alot more robust than it already is. Mantri tries to prevent outliers by ensuring that network I/O is not congested, and restarting jobs if they are slower than expected, and making data redundant if the costs of recomputing them is too high. \\
 
-However Mantri does have one flaw which it tries to avoid by running the longer tasks first, which is the issue of extra large tasks as a result of the partitioning which is done over a series of keys that is not really random, but may result in large data points being regarded as in the same dataset.
+However Mantri does have one flaw which it tries to avoid by running the longer tasks first, which is the issue of extra large tasks as a result of the partitioning which is done over a series of keys that is not really random, but may result in large data points being regarded as in the same dataset. This could potentially still not solve the outlier issue but only in small number of cases.\\
 
 
 \subsection{Nectar}
 
-\subsection{Optimising data shuffling in Data Parallel Computation}
+Nectar is generally a very robust solution to ensuring that recomputation does not occur.\\
+
+However, Nectar fails to take in the case where recomputation on a nearer worker machine might actually be faster than transfering the data over a congested network. There are very possibly situations where recomputing the data on another machine or machines on the same rack could be faster due to the direct connection of machines within the same rack. Hence, while Nectar may have solved the issue on reducing compute time, it is safe to say that they have been too focused on saving compute time and forgot about the larger picture of reducing the overall MapReduce operation time.\\
+
+\subsection{Optimizing Data Shuffling in Data-Parallel Computation by Understanding User-Defined Functions}
+
+This method is can generally be able to speed up the data shuffling portion of a MapReduce operation. It is a highly targeted approach and it works quite well for it's use case. However, this would only be worth implementing if the cluster and dataset is very big as the cost of data shuffling on smaller data sets might not be as high.\\
 
 %1 page
 \section{State of Research}
+Currently, the Map-Reduce is a mature paradigm for distributed parallel computing and its open-source implementation, Hadoop\cite{apache_hadoop}, has came a long way to become one of Apache’s top level project. Hadoop is also supported by an ecosystem of projects like Pig\cite{apache_pig}, Hive\cite{apache_hive}, Zookeeper\cite{apache_zookeeper}, that increases the functionality and usability.\\
 
+Furthermore, many companies and cloud service providers, like IBM Platform Compute\cite{ibm_pc}, Amazons’s Elastic CloudCompute\cite{aws_emr}, Cloudera\cite{cloudera} has also made different incremental improvement to Hadoop, like fault tolerance, performance in order to bundle their improved distribution of Hadoop in their commercial offerings. \\
+
+On the research front, Map-Reduce is used to solve different “Big Data” problems in many specialized sub-fields, for eg, the Harvard Broad Institute has implemented the Genome Analysis Tool Kit to enable bioinformaticians to more easily write genomic sciences software in a MapReduce paradigm\cite{mckenna}. Also, with the increased usage and applicability of Map-Reduce/Hadoop to different problems, one important problem current and near future research is trying to ask is that if we could better address the limits and inefficiencies in MapReduce?\cite{afrati}.\\
+
+\clearpage
+\begin{thebibliography}{99}
+\bibitem{mckenna}
+McKenna, A. et. al. (2010). The Genome Analysis Toolkit: A MapReduce framework for analyzing next-generation DNA sequencing data. Genome Research, 20:1297–1303
+
+\bibitem{afrati}
+Afrati et. al. (2012). Vision Paper: Towards an Understanding of the Limits of Map-Reduce Computation. IEEE 28th International Conference on Data Engineering Conference Paper (ICDE 2012).
+
+\bibitem{apache_hadoop}
+Apache Hadoop
+http://hadoop.apache.org/ 
+
+\bibitem{apache_pig}
+Apache Pig
+http://pig.apache.org/
+
+\bibitem{apache_hive}
+Apache Hive 
+http://hive.apache.org/
+
+\bibitem{apache_zookepper}
+Apache Zookeeper
+http://zookeeper.apache.org/
+
+\bibitem{aws_emr}
+Amazon Elastic MapReduce
+http://aws.amazon.com/elasticmapreduce/
+
+\bibitem{ibm_pc}
+Platform Compute
+http://www-03.ibm.com/systems/technicalcomputing/platformcomputing/
+
+\bibitem{cloudera}
+Cloudera
+http://www.cloudera.com/content/cloudera/en/home.html
+
+\end{thebibliography}
 \end{document}
